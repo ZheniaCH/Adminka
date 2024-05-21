@@ -1,76 +1,102 @@
-const {readData, writeData} = require("../utils/data")
+const games = require("../models/game");
 
-const getAllGames = async (req, res, next) => {
-    const games = await readData("./data/games.json");
-    if (!games) {
-      res.status(400);
-      res.send({
-        status: "error",
-        message: "Нет игр в базе данных. Добавьте игру."
-      });
-      return;
-    }
-    req.games = games;
-    next();
-  };
-  
-  const checkIsTitleInArray = (req, res, next) => {
-    req.isNew = !Boolean(req.games.find((item) => item.title === req.body.title));
-    next();
-  };
-  
-  const updateGamesArray = (req, res,next) => {
-    if (req.isNew) {
-        const inArray = req.games.map((item) => Number(item.id));
-        let maximalId;
-        if (inArray.length > 0) {
-        maximalId = Math.max(...inArray);
-        } else {
-        maximalId = 0;
-        }
+const checkIsVoteRequest = async (req, res, next) => {
+  // Если в запросе присылают только поле users
+if (Object.keys(req.body).length === 1 && req.body.users) {
+  req.isVoteRequest = true;
+}
+next();
+}; 
 
-        req.updatedObject = {
-            id: maximalId + 1,
-            title: req.body.title,
-            image: req.body.image,
-            link: req.body.link,
-            description: req.body.description,
-        };
-        req.games = [...req.games, req.updatedObject];
-        next();
-        return;
-    } else {
-        res.status(400);
-        res.send({
-          status: "error",
-          message: "Игра с таким именем уже есть.",
-        });
-    }
+const findAllGames = async (req, res, next) => {
+  // Поиск всех игр в проекте по заданной категории
+  if(req.query["categories.name"]) { 
+    req.gamesArray = await games.findGameByCategory(req.query["categories.name"]);
+    next();
+    return;
+  }
+  // Поиск всех игр в проекте
+  req.gamesArray = await games
+    .find({})
+    .populate("categories")
+    .populate({
+      path: "users",
+      select: "-password" // Исключим данные о паролях пользователей
+    })
+  next();
 };
 
-const updateGamesFile = async (req, res, next) => {
-    await writeData("./data/games.json", req.games);
+const createGame = async (req, res, next) => {
+  try {
+    req.game = await games.create(req.body);
     next();
-};    
-
-const findGameById = (req, res, next) => {
-    const id = Number(req.params.id);
-    req.game = req.games.find((item) => item.id === id);
-    next();
+  } catch (error) {
+    res.status(400).send({ message: "Error creating game" });
+  }
 };
 
-const deleteGame = (req, res, next) => {
-    const id = req.game.id;
-    const index = req.games.findIndex((item) => item.id === req.game.id);
-    req.games.splice(index, 1);
+const findGameById = async (req, res, next) => {
+  try {
+    req.game = games
+      .findById(req.params.id)
+      .populate("categories")
+      .populate("users");
     next();
+  } catch (error) {
+    res.status(404).send({ message: "Game not found" });
+  }
 };
+
+const updateGame = async (req, res, next) => {
+  try {
+    req.game = await games.findByIdAndUpdate(req.params.id, req.body);
+  } catch (error) {
+    res.status(400).send({ message: "Error updating game" });
+  }
+};
+
+const deleteGame = async (req, res, next) => {
+  try {
+    req.game = await games.findByIdAndDelete(req.params.id);
+    next();
+  } catch (error) {
+    res.status(400).send({ message: "Error deleting game" });
+  }
+};
+
+const checkIsGameExists = async (req, res, next) => {
+  const isInArray = req.gamesArray.find((game) => {
+    return req.body.title === game.title;
+  });
+  if (isInArray) {
+    res.setHeader("Content-Type", "application/json");
+        res.status(400).send(JSON.stringify({ message: "Игра с таким названием уже существует" }));
+  } else {
+    next();
+  }
+}; 
+
+const checkIfUsersAreSafe = async (req, res, next) => {
+  if (!req.body.users) {
+    next();
+    return;
+  }
+  if (req.body.users.length - 1 === req.game.users.length) {
+    next();
+    return;
+  } else {
+    res.setHeader("Content-Type", "application/json");
+        res.status(400).send(JSON.stringify({ message: "Нельзя удалять пользователей или добавлять больше одного пользователя" }));
+  }
+}; 
 
 module.exports = {
-    getAllGames,
-    checkIsTitleInArray,
-    updateGamesArray,
-    updateGamesFile,
-    findGameById,
-    deleteGame,
+  findAllGames,
+  createGame,
+  findGameById,
+  updateGame,
+  deleteGame,
+  checkIsGameExists,
+  checkIfUsersAreSafe,
+  checkIsVoteRequest,
 };

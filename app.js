@@ -1,23 +1,28 @@
-const express = require("express");
-
-const path = require("path");
+const express = require('express');
 const bodyParser = require('body-parser');
+const path = require('path');
+const usersRouter = require('./routes/users');
+const gamesRouter = require('./routes/games');
+const categoriesRouter = require('./routes/categories');
+const cookieParser = require("cookie-parser");
 
-const mainRoute = require("./routes/main");
-const gamesRouter = require("./routes/games");
-const cors = require("./middlewares/cors");
-const PORT = 3000;
+const connectToDatabase = require('./database/connect');
+const cors = require('./middlewares/cors');
+const apiRouter = require('./routes/apiRouter');
+const pagesRouter = require('./routes/pages');
+
 const app = express();
+const PORT = 3001;
+
+connectToDatabase();
 
 app.use(
-    cors,
-    bodyParser.json(),
-    express.static(path.join(__dirname, "public")),
-    mainRoute,
-    gamesRouter,
+  cors,
+  cookieParser(),
+  bodyParser.json(),
+  pagesRouter,
+  apiRouter,
+  express.static(path.join(__dirname, 'public')),
 );
 
-app.listen(PORT, () => {
-    console.log(`Приложение запущено тут: http://localhost: ${PORT}`);
-});
-
+app.listen(PORT);
