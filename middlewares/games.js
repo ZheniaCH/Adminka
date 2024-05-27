@@ -2,14 +2,29 @@ const games = require("../models/game");
 
 const findAllGames = async (req, res, next) => {
   console.log("GET /games");
-  req.gamesArray = await games.find({}).populate("categories").populate({
+
+  const categoryName = req.query["categories.name"];
+
+  let gamesArray = await games.find({}).populate("categories").populate({
     path: "users",
     select: "-password",
   });
+
+  if (categoryName) {
+    gamesArray = gamesArray.filter((game) =>
+      game.categories.some((category) => category.name === categoryName)
+    );
+  }
+
+  req.gamesArray = gamesArray;
   next();
 };
 
 const checkEmptyFields = async (req, res, next) => {
+  if (req.isVoteRequest) {
+    next();
+    return;
+  }
   if (
     !req.body.title ||
     !req.body.description ||
@@ -37,6 +52,10 @@ const checkIsGameExists = async (req, res, next) => {
 };
 
 const checkIfCategoriesAvaliable = async (req, res, next) => {
+  if (req.isVoteRequest) {
+    next();
+    return;
+  }
   if (!req.body.categories || req.body.categories.length === 0) {
     res.headers = { "Content-Type": "application/json" };
     res.status(400).send({ message: "Выберите хотя бы одну категорию" });
@@ -82,12 +101,10 @@ const checkIfUsersAreSafe = async (req, res, next) => {
     next();
     return;
   } else {
-    res
-      .status(400)
-      .send({
-        message:
-          "Нельзя удалять пользователей или добавлять больше одного пользователя",
-      });
+    res.status(400).send({
+      message:
+        "Нельзя удалять пользователей или добавлять больше одного пользователя",
+    });
   }
 };
 
@@ -111,6 +128,14 @@ const deleteGame = async (req, res, next) => {
   }
 };
 
+const checkIsVoteRequest = async (req, res, next) => {
+  // Если в запросе присылают только поле users
+  if (Object.keys(req.body).length === 1 && req.body.users) {
+    req.isVoteRequest = true;
+  }
+  next();
+};
+
 module.exports = {
   findAllGames,
   checkIsGameExists,
@@ -121,4 +146,5 @@ module.exports = {
   updateGame,
   deleteGame,
   checkEmptyFields,
+  checkIsVoteRequest,
 };
