@@ -1,4 +1,4 @@
-Ссылка на репозиторий с фронтендом: https://github.com/ZheniaCH/Pindie_front_1.git
+Ссылка на репозиторий с фронтендом: https://github.com/ZheniaCH/pindie-theme-8-main.git
 
 Ссылка на домен фронтенда: front-pindie.nomoredomainswork.ru
 
